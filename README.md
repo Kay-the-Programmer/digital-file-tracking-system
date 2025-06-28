@@ -32,11 +32,11 @@ You need to have [Node.js](https://nodejs.org/) (version 18 or higher) and [npm]
 
 1.  **Clone the repository:**
     ```sh
-    git clone <your-repository-url>
+    git clone https://github.com/Kay-the-Programmer/digital-file-tracking-system.git
     ```
 2.  **Navigate to the project directory:**
     ```sh
-    cd <project-directory>
+    cd digital-file-tracking-system
     ```
 3.  **Install the dependencies:**
     ```sh
