@@ -2,12 +2,12 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { api } from '../../services/api';
+import { caseService } from '../../services';
 import { Case, CaseStatus } from '../../types';
 import Card from '../../components/ui/Card';
 import Spinner from '../../components/ui/Spinner';
 import Button from '../../components/ui/Button';
-import { ROUTES, ICONS } from '../../constants';
+import { ROUTES } from '../../constants';
 import PermissionGuard from '../../components/auth/PermissionGuard';
 
 const getStatusColor = (status: CaseStatus) => {
@@ -39,7 +39,7 @@ const CaseListPage: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await api.fetchCases();
+      const data = await caseService.getAll();
       setCases(data);
     } catch (error) {
       console.error("Failed to fetch cases", error);
@@ -52,7 +52,7 @@ const CaseListPage: React.FC = () => {
   useEffect(() => {
     fetchCases();
   }, []);
-  
+
   const openDeleteModal = (caseItem: Case) => {
     setCaseToDelete(caseItem);
     setIsModalOpen(true);
@@ -67,7 +67,7 @@ const CaseListPage: React.FC = () => {
     if (!caseToDelete) return;
     setIsDeleting(true);
     try {
-      await api.deleteCase(caseToDelete.id);
+      await caseService.delete(caseToDelete.id);
       closeDeleteModal();
       await fetchCases(); // Refresh list
     } catch (err) {
@@ -77,7 +77,7 @@ const CaseListPage: React.FC = () => {
       setIsDeleting(false);
     }
   };
-  
+
   const uniqueCaseTypes = useMemo(() => {
     if (!cases) return [];
     const types = new Set(cases.map(c => c.case_type));
@@ -177,7 +177,7 @@ const CaseListPage: React.FC = () => {
             </Link>
         </PermissionGuard>
       </div>
-      
+
       <Card>
         <div className="flex flex-col md:flex-row justify-between items-center mb-4 gap-4 p-4 bg-gray-800 rounded-lg">
           <input
@@ -212,7 +212,7 @@ const CaseListPage: React.FC = () => {
         </div>
         {renderContent()}
       </Card>
-      
+
       {isModalOpen && caseToDelete && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
           <Card className="w-full max-w-md">

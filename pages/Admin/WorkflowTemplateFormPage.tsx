@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { api } from '../../services/api';
-import { WorkflowTemplatePayload, WorkflowStepDefinition } from '../../types';
+import { workflowService } from '../../services/workflows';
+import { WorkflowTemplatePayload, WorkflowStepDefinition } from '@/types.ts';
 import Card from '../../components/ui/Card';
 import Spinner from '../../components/ui/Spinner';
 import Button from '../../components/ui/Button';
@@ -24,7 +24,7 @@ const WorkflowTemplateFormPage: React.FC = () => {
   const [description, setDescription] = useState('');
   const [caseType, setCaseType] = useState('Fund Request');
   const [steps, setSteps] = useState<(Omit<WorkflowStepDefinition, 'id'> & { id?: string, actions_str: string })[]>([{ ...initialStep, actions_str: '' }]);
-  
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,7 +33,7 @@ const WorkflowTemplateFormPage: React.FC = () => {
       const fetchTemplate = async () => {
         setLoading(true);
         try {
-          const template = await api.fetchWorkflowTemplateById(id);
+          const template = await workflowService.getTemplateById(id);
           if (template) {
             setName(template.name);
             setDescription(template.description);
@@ -88,9 +88,9 @@ const WorkflowTemplateFormPage: React.FC = () => {
 
     try {
       if (isEditMode) {
-        await api.updateWorkflowTemplate(id, payload);
+        await workflowService.updateTemplate(id, payload);
       } else {
-        await api.createWorkflowTemplate(payload);
+        await workflowService.createTemplate(payload);
       }
       navigate(ROUTES.ADMIN_WORKFLOW_TEMPLATES);
     } catch (err) {
@@ -103,7 +103,7 @@ const WorkflowTemplateFormPage: React.FC = () => {
   if (loading && isEditMode) {
     return <div className="flex justify-center items-center h-full"><Spinner size="lg" /></div>;
   }
-  
+
   return (
     <div>
       <h1 className="text-3xl font-bold mb-6">{isEditMode ? 'Edit' : 'Create'} Workflow Template</h1>
@@ -167,7 +167,7 @@ const WorkflowTemplateFormPage: React.FC = () => {
           </div>
 
           {error && <p className="text-sm text-red-400 bg-red-900/50 p-3 rounded-md">{error}</p>}
-          
+
           <div className="flex justify-end space-x-4 pt-4 border-t border-gray-700">
             <Button type="button" variant="secondary" onClick={() => navigate(ROUTES.ADMIN_WORKFLOW_TEMPLATES)}>
               Cancel

@@ -1,13 +1,13 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { api } from '../../services/api';
-import { Role } from '../../types';
+import { userService } from '../../services/users';
+import { Role } from '@/types.ts';
 import Card from '../../components/ui/Card';
 import Spinner from '../../components/ui/Spinner';
 import Button from '../../components/ui/Button';
 import { ROUTES } from '../../constants';
-import PermissionGuard from '../../components/auth/PermissionGuard';
+import { useHasPermission } from '@/hooks/useHasPermission.ts';
 
 const RoleListPage: React.FC = () => {
   const [roles, setRoles] = useState<Role[]>([]);
@@ -16,12 +16,18 @@ const RoleListPage: React.FC = () => {
   const [itemToDelete, setItemToDelete] = useState<Role | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const canUpdateRole = useHasPermission('role:update');
+  const canCreateRole = useHasPermission('role:create');
+  const canDeleteRole = useHasPermission('role:delete');
 
   const fetchItems = async () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await api.fetchRoles();
+      const data = await userService.getAllRoles();
       setRoles(data);
     } catch (err) {
       console.error("Failed to fetch roles", err);
@@ -43,22 +49,38 @@ const RoleListPage: React.FC = () => {
   const closeDeleteModal = () => {
     setItemToDelete(null);
     setIsModalOpen(false);
+    setDeleteError(null);
   };
 
   const handleDelete = async () => {
     if (!itemToDelete) return;
     setIsDeleting(true);
+    setDeleteError(null);
     try {
-      await api.deleteRole(itemToDelete.id);
+      await userService.deleteRole(itemToDelete.id);
       closeDeleteModal();
       await fetchItems(); // Refresh the list
     } catch (err) {
-      setError("Failed to delete role.");
-      console.error(err);
+      console.error("Failed to delete role", err);
+      setDeleteError(`Failed to delete role: ${err instanceof Error ? err.message : 'Unknown error occurred'}`);
     } finally {
       setIsDeleting(false);
     }
   };
+
+  const filteredRoles = useMemo(() => {
+    if (!roles) return [];
+
+    if (searchTerm) {
+      const lowerCaseSearchTerm = searchTerm.toLowerCase();
+      return roles.filter(
+        role =>
+          role.name.toLowerCase().includes(lowerCaseSearchTerm) ||
+          (role.description && role.description.toLowerCase().includes(lowerCaseSearchTerm))
+      );
+    }
+    return roles;
+  }, [roles, searchTerm]);
 
   const renderContent = () => {
     if (loading) {
@@ -67,8 +89,8 @@ const RoleListPage: React.FC = () => {
     if (error) {
       return <div className="text-center py-10 text-red-400 bg-red-900/30 rounded-lg">{error}</div>;
     }
-    if (roles.length === 0) {
-      return <div className="text-center py-10 text-gray-500">No roles found.</div>;
+    if (filteredRoles.length === 0) {
+      return <div className="text-center py-10 text-gray-500">No roles found matching your criteria.</div>;
     }
     return (
       <div className="overflow-x-auto">
@@ -82,7 +104,7 @@ const RoleListPage: React.FC = () => {
             </tr>
           </thead>
           <tbody>
-            {roles.map(role => (
+            {filteredRoles.map(role => (
               <tr key={role.id} className="border-b border-gray-700 hover:bg-gray-800">
                 <td className="p-4 font-medium">{role.name}</td>
                 <td className="p-4 text-gray-400">{role.description}</td>
@@ -91,14 +113,14 @@ const RoleListPage: React.FC = () => {
                 </td>
                 <td className="p-4 text-right">
                   <div className="flex items-center justify-end space-x-2">
-                    <PermissionGuard permission="role:update">
-                        <Link to={ROUTES.ADMIN_ROLES_EDIT.replace(':id', role.id)}>
-                            <Button variant="secondary" size="sm">Edit</Button>
-                        </Link>
-                    </PermissionGuard>
-                    <PermissionGuard permission="role:delete">
-                        <Button variant="danger" size="sm" onClick={() => openDeleteModal(role)}>Delete</Button>
-                    </PermissionGuard>
+                    {canUpdateRole && (
+                      <Link to={ROUTES.ADMIN_ROLES_EDIT.replace(':id', role.id)}>
+                        <Button variant="secondary" size="sm">Edit</Button>
+                      </Link>
+                    )}
+                    {canDeleteRole && (
+                      <Button variant="danger" size="sm" onClick={() => openDeleteModal(role)}>Delete</Button>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -108,19 +130,28 @@ const RoleListPage: React.FC = () => {
       </div>
     );
   };
-  
+
   return (
     <div>
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
         <h1 className="text-3xl font-bold">Role Management</h1>
-        <PermissionGuard permission="role:create">
-            <Link to={ROUTES.ADMIN_ROLES_CREATE}>
-                <Button>Create New Role</Button>
-            </Link>
-        </PermissionGuard>
+        {canCreateRole && (
+          <Link to={ROUTES.ADMIN_ROLES_CREATE}>
+            <Button>Create New Role</Button>
+          </Link>
+        )}
       </div>
 
       <Card>
+        <div className="flex flex-col md:flex-row justify-between items-center mb-4 gap-4 p-4 bg-gray-800 rounded-lg">
+          <input
+            type="text"
+            placeholder="Search roles..."
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            className="w-full md:w-1/3 px-3 py-2 bg-gray-700 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 transition"
+          />
+        </div>
         {renderContent()}
       </Card>
 
@@ -128,10 +159,26 @@ const RoleListPage: React.FC = () => {
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
           <Card className="w-full max-w-md">
             <h2 className="text-xl font-bold mb-4">Delete Role</h2>
-            <p className="text-gray-300 mb-6">Are you sure you want to delete role <span className="font-bold">{itemToDelete.name}</span>? This action cannot be undone.</p>
+            {deleteError ? (
+              <div className="bg-red-900/30 text-red-400 p-3 rounded-md mb-4">
+                {deleteError}
+              </div>
+            ) : (
+              <p className="text-gray-300 mb-6">
+                Are you sure you want to delete role <span className="font-bold">{itemToDelete.name}</span>? 
+                This action cannot be undone.
+              </p>
+            )}
             <div className="flex justify-end space-x-4">
               <Button variant="secondary" onClick={closeDeleteModal} disabled={isDeleting}>Cancel</Button>
-              <Button variant="danger" onClick={handleDelete} isLoading={isDeleting}>Delete</Button>
+              <Button 
+                variant="danger" 
+                onClick={handleDelete} 
+                isLoading={isDeleting}
+                disabled={isDeleting}
+              >
+                {deleteError ? 'Retry' : 'Delete'}
+              </Button>
             </div>
           </Card>
         </div>

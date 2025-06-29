@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { api } from '../../services/api';
-import { OrgUnitCreationPayload, OrgUnitUpdatePayload, OrganizationalUnit } from '../../types';
+import { organizationService } from '../../services/organization';
+import { OrgUnitCreationPayload, OrgUnitUpdatePayload, OrganizationalUnit } from '@/types.ts';
 import Card from '../../components/ui/Card';
 import Spinner from '../../components/ui/Spinner';
 import Button from '../../components/ui/Button';
@@ -27,7 +27,7 @@ const OrgUnitFormPage: React.FC = () => {
     description: '',
     parent_id: '',
   });
-  
+
   const [allUnits, setAllUnits] = useState<OrganizationalUnit[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,11 +36,11 @@ const OrgUnitFormPage: React.FC = () => {
     const fetchInitialData = async () => {
       setLoading(true);
       try {
-        const unitsData = await api.fetchOrganizationalUnits();
+        const unitsData = await organizationService.getAllUnits();
         setAllUnits(unitsData);
 
         if (isEditMode && id) {
-          const unitData = await api.fetchOrganizationalUnitById(id);
+          const unitData = await organizationService.getUnitById(id);
           if (unitData) {
             setFormData({
               name: unitData.name,
@@ -81,9 +81,9 @@ const OrgUnitFormPage: React.FC = () => {
 
     try {
       if (isEditMode && id) {
-        await api.updateOrganizationalUnit(id, payload);
+        await organizationService.updateUnit(id, payload);
       } else {
-        await api.createOrganizationalUnit(payload as OrgUnitCreationPayload);
+        await organizationService.createUnit(payload as OrgUnitCreationPayload);
       }
       navigate(ROUTES.ADMIN_ORG_UNITS);
     } catch (err) {
@@ -95,7 +95,7 @@ const OrgUnitFormPage: React.FC = () => {
 
   const parentOptions = useMemo(() => {
     if (!isEditMode) return allUnits;
-    
+
     // To prevent circular dependencies, filter out the current unit and all its descendants.
     const descendantIds = new Set<string>([id!]);
     const findDescendants = (parentId: string) => {
@@ -144,9 +144,9 @@ const OrgUnitFormPage: React.FC = () => {
                 className="w-full input-field" />
             </div>
           </div>
-          
+
           {error && <p className="text-sm text-red-400 bg-red-900/50 p-3 rounded-md">{error}</p>}
-          
+
           <div className="flex justify-end space-x-4 pt-4 border-t border-gray-700">
             <Button type="button" variant="secondary" onClick={() => navigate(ROUTES.ADMIN_ORG_UNITS)}>Cancel</Button>
             <Button type="submit" isLoading={loading}>{isEditMode ? 'Save Changes' : 'Create Unit'}</Button>

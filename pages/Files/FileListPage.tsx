@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { api } from '../../services/api';
-import { File } from '../../types';
+import { fileService } from '../../services';
+import { File } from '@/types.ts';
 import Card from '../../components/ui/Card';
 import Spinner from '../../components/ui/Spinner';
 import Button from '../../components/ui/Button';
@@ -24,7 +24,7 @@ const FileListPage: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await api.fetchFiles();
+      const data = await fileService.getAll();
       setFiles(data);
     } catch (err) {
       console.error("Failed to fetch files", err);
@@ -52,7 +52,7 @@ const FileListPage: React.FC = () => {
     if (!fileToDelete) return;
     setIsDeleting(true);
     try {
-      await api.deleteFile(fileToDelete.id);
+      await fileService.delete(fileToDelete.id);
       closeDeleteModal();
       await fetchFiles(); // Refresh the list
     } catch (err) {
@@ -111,7 +111,7 @@ const FileListPage: React.FC = () => {
             </Link>
         </PermissionGuard>
       </div>
-      
+
       <Card>
         <div className="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
           <input
@@ -136,7 +136,7 @@ const FileListPage: React.FC = () => {
         </div>
         {renderContent()}
       </Card>
-      
+
       {isModalOpen && fileToDelete && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
           <Card className="w-full max-w-md">

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { api } from '../../services/api';
+import { caseService } from '../../services/cases';
 import { CaseTypeAttribute, CaseTypeCreationPayload, CaseTypeUpdatePayload } from '../../types';
 import Card from '../../components/ui/Card';
 import Spinner from '../../components/ui/Spinner';
@@ -20,7 +20,7 @@ const CaseTypeFormPage: React.FC = () => {
         description: '',
         attribute_definitions: [initialAttribute]
     });
-    
+
     const [loading, setLoading] = useState(false);
     const [pageLoading, setPageLoading] = useState(isEditMode);
     const [error, setError] = useState<string | null>(null);
@@ -29,7 +29,7 @@ const CaseTypeFormPage: React.FC = () => {
         if (isEditMode && id) {
             const fetchCaseType = async () => {
                 try {
-                    const data = await api.fetchCaseTypeById(id);
+                    const data = await caseService.getTypeById(id);
                     if (data) {
                         setFormData({
                             name: data.name,
@@ -72,23 +72,23 @@ const CaseTypeFormPage: React.FC = () => {
              setFormData(prev => ({ ...prev, attribute_definitions: [initialAttribute] }));
         }
     };
-    
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
         setError(null);
-        
+
         const payload: CaseTypeCreationPayload | CaseTypeUpdatePayload = {
             name: formData.name,
             description: formData.description,
             attribute_definitions: formData.attribute_definitions.filter(attr => attr.name && attr.label), // Filter out empty attributes
         };
-        
+
         try {
             if (isEditMode && id) {
-                await api.updateCaseType(id, payload);
+                await caseService.updateType(id, payload);
             } else {
-                await api.createCaseType(payload as CaseTypeCreationPayload);
+                await caseService.createType(payload as CaseTypeCreationPayload);
             }
             navigate(ROUTES.ADMIN_CASE_TYPES);
         } catch (err) {
@@ -97,7 +97,7 @@ const CaseTypeFormPage: React.FC = () => {
             setLoading(false);
         }
     };
-    
+
     if (pageLoading) {
         return <div className="flex justify-center items-center h-full"><Spinner size="lg" /></div>;
     }
@@ -114,7 +114,7 @@ const CaseTypeFormPage: React.FC = () => {
                             <textarea id="description" name="description" value={formData.description} onChange={handleInputChange} rows={3} className="mt-1 w-full input-field" />
                         </div>
                     </div>
-                    
+
                     <div className="space-y-4 pt-4 border-t border-gray-700">
                         <h2 className="text-xl font-semibold">Custom Attributes</h2>
                         {formData.attribute_definitions.map((attr, index) => (

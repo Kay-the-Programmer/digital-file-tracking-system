@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { api } from '../../services/api';
+import { userService } from '../../services/users';
 import { RoleCreationPayload, RoleUpdatePayload } from '../../types';
 import Card from '../../components/ui/Card';
 import Spinner from '../../components/ui/Spinner';
@@ -28,7 +28,7 @@ const RoleFormPage: React.FC = () => {
     description: '',
     permissions: [] as string[],
   });
-  
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,7 +37,7 @@ const RoleFormPage: React.FC = () => {
       const fetchRole = async () => {
         setLoading(true);
         try {
-          const roleData = await api.fetchRoleById(id);
+          const roleData = await userService.getRoleById(id);
           if (roleData) {
             setFormData(roleData);
           } else {
@@ -81,9 +81,9 @@ const RoleFormPage: React.FC = () => {
 
     try {
       if (isEditMode && id) {
-        await api.updateRole(id, payload);
+        await userService.updateRole(id, payload);
       } else {
-        await api.createRole(payload);
+        await userService.createRole(payload);
       }
       navigate(ROUTES.ADMIN_ROLES);
     } catch (err) {
@@ -119,9 +119,9 @@ const RoleFormPage: React.FC = () => {
                   ))}
               </div>
           </div>
-          
+
           {error && <p className="text-sm text-red-400 bg-red-900/50 p-3 rounded-md">{error}</p>}
-          
+
           <div className="flex justify-end space-x-4 pt-4 border-t border-gray-700">
             <Button type="button" variant="secondary" onClick={() => navigate(ROUTES.ADMIN_ROLES)}>Cancel</Button>
             <Button type="submit" isLoading={loading}>{isEditMode ? 'Save Changes' : 'Create Role'}</Button>

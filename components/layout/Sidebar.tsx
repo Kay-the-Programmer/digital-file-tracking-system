@@ -2,8 +2,8 @@
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { ROUTES, ICONS } from '../../constants';
-import { useAuthStore } from '../../store/authStore';
 import { useUIStore } from '../../store/uiStore';
+import { useHasPermission } from '../../hooks/useHasPermission';
 
 const NavItem = ({ to, icon, label, isExpanded }: { to: string; icon: React.FC<any>; label: string; isExpanded: boolean; }) => {
   const Icon = icon;
@@ -34,20 +34,28 @@ const NavItem = ({ to, icon, label, isExpanded }: { to: string; icon: React.FC<a
 const Sidebar: React.FC = () => {
     const { isSidebarOpen, toggleSidebar } = useUIStore();
     const [isHovered, setIsHovered] = useState(false);
-    const { hasPermission } = useAuthStore();
-    
+
     // The sidebar is visually expanded if it's pinned open OR the user is hovering over it
     const isExpanded = isSidebarOpen || isHovered;
-    
+
+    const canViewUsers = useHasPermission('user:list');
+    const canViewRoles = useHasPermission('role:list');
+    const canManageWorkflow = useHasPermission('workflow:manage');
+    const canViewAudit = useHasPermission('audit:view');
+    const canViewOrg = useHasPermission('org:list');
+    const canViewLocations = useHasPermission('location:list');
+    const canViewCaseTypes = useHasPermission('casetype:list');
+    const canViewWorkflowInstances = useHasPermission('workflow:instance:list');
+
     const showAdminSection = 
-        hasPermission('user:list') || 
-        hasPermission('role:list') || 
-        hasPermission('workflow:manage') || 
-        hasPermission('audit:view') ||
-        hasPermission('org:list') ||
-        hasPermission('location:list') ||
-        hasPermission('casetype:list') ||
-        hasPermission('workflow:instance:list');
+        canViewUsers || 
+        canViewRoles || 
+        canManageWorkflow || 
+        canViewAudit ||
+        canViewOrg ||
+        canViewLocations ||
+        canViewCaseTypes ||
+        canViewWorkflowInstances;
 
     return (
       <div 
@@ -66,7 +74,7 @@ const Sidebar: React.FC = () => {
               <NavItem to={ROUTES.FILES} icon={ICONS.FILES} label="Files" isExpanded={isExpanded} />
               <NavItem to={ROUTES.CASES} icon={ICONS.CASES} label="Cases" isExpanded={isExpanded} />
               <NavItem to={ROUTES.ORGANIZATION} icon={ICONS.ORGANIZATION} label="Organization" isExpanded={isExpanded} />
-              
+
               {showAdminSection && (
                 <div className="pt-4 space-y-2">
                   <div className={`h-8 flex items-center transition-all duration-300 ${isExpanded ? 'px-4' : 'justify-center'}`}>
@@ -75,14 +83,14 @@ const Sidebar: React.FC = () => {
                     </div>
                     {!isExpanded && <div className="w-8 h-px bg-gray-600"></div>}
                   </div>
-                  {hasPermission('user:list') && <NavItem to={ROUTES.ADMIN_USERS} icon={ICONS.ADMIN} label="User Management" isExpanded={isExpanded} />}
-                  {hasPermission('role:list') && <NavItem to={ROUTES.ADMIN_ROLES} icon={ICONS.SHIELD} label="Role Management" isExpanded={isExpanded} />}
-                  {hasPermission('org:list') && <NavItem to={ROUTES.ADMIN_ORG_UNITS} icon={ICONS.ORGANIZATION} label="Org. Management" isExpanded={isExpanded} />}
-                  {hasPermission('location:list') && <NavItem to={ROUTES.ADMIN_LOCATIONS} icon={ICONS.LOCATION} label="Location Mgt" isExpanded={isExpanded} />}
-                  {hasPermission('casetype:list') && <NavItem to={ROUTES.ADMIN_CASE_TYPES} icon={ICONS.BRIEFCASE} label="Case Type Mgt" isExpanded={isExpanded} />}
-                  {hasPermission('workflow:manage') && <NavItem to={ROUTES.ADMIN_WORKFLOW_TEMPLATES} icon={ICONS.WORKFLOW} label="Workflow Templates" isExpanded={isExpanded} />}
-                  {hasPermission('workflow:instance:list') && <NavItem to={ROUTES.ADMIN_WORKFLOW_INSTANCES} icon={ICONS.WORKFLOW} label="Workflow Instances" isExpanded={isExpanded} />}
-                  {hasPermission('audit:view') && <NavItem to={ROUTES.ADMIN_AUDIT} icon={ICONS.HISTORY} label="Audit Log" isExpanded={isExpanded} />}
+                  {canViewUsers && <NavItem to={ROUTES.ADMIN_USERS} icon={ICONS.ADMIN} label="User Management" isExpanded={isExpanded} />}
+                  {canViewRoles && <NavItem to={ROUTES.ADMIN_ROLES} icon={ICONS.SHIELD} label="Role Management" isExpanded={isExpanded} />}
+                  {canViewOrg && <NavItem to={ROUTES.ADMIN_ORG_UNITS} icon={ICONS.ORGANIZATION} label="Org. Management" isExpanded={isExpanded} />}
+                  {canViewLocations && <NavItem to={ROUTES.ADMIN_LOCATIONS} icon={ICONS.LOCATION} label="Location Mgt" isExpanded={isExpanded} />}
+                  {canViewCaseTypes && <NavItem to={ROUTES.ADMIN_CASE_TYPES} icon={ICONS.BRIEFCASE} label="Case Type Mgt" isExpanded={isExpanded} />}
+                  {canManageWorkflow && <NavItem to={ROUTES.ADMIN_WORKFLOW_TEMPLATES} icon={ICONS.WORKFLOW} label="Workflow Templates" isExpanded={isExpanded} />}
+                  {canViewWorkflowInstances && <NavItem to={ROUTES.ADMIN_WORKFLOW_INSTANCES} icon={ICONS.WORKFLOW} label="Workflow Instances" isExpanded={isExpanded} />}
+                  {canViewAudit && <NavItem to={ROUTES.ADMIN_AUDIT} icon={ICONS.HISTORY} label="Audit Log" isExpanded={isExpanded} />}
                 </div>
               )}
           </nav>

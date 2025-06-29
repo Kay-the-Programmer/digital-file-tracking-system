@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { useAuthStore } from '../../store/authStore';
+import { useHasPermission } from '../../hooks/useHasPermission';
 
 interface PermissionGuardProps {
   permission: string;
@@ -9,9 +9,9 @@ interface PermissionGuardProps {
 }
 
 const PermissionGuard: React.FC<PermissionGuardProps> = ({ permission, children, fallback = null }) => {
-  const { hasPermission } = useAuthStore();
+  const hasPermission = useHasPermission(permission);
 
-  if (hasPermission(permission)) {
+  if (hasPermission) {
     return <>{children}</>;
   }
 

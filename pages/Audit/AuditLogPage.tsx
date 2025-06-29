@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { api } from '../../services/api';
+import { auditService } from '../../services';
 import { AuditLog } from '../../types';
 import Card from '../../components/ui/Card';
 import Spinner from '../../components/ui/Spinner';
@@ -21,7 +21,15 @@ const AuditLogPage: React.FC = () => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const data = await api.fetchAuditLogs(filters);
+        // Convert filters to the format expected by getAllEvents
+        const params: { [key: string]: string } = {};
+        if (filters.search_term) params.search = filters.search_term;
+        if (filters.event_type) params.event_type = filters.event_type;
+        if (filters.resource_type) params.resource_type = filters.resource_type;
+        if (filters.start_date) params.start_date = filters.start_date;
+        if (filters.end_date) params.end_date = filters.end_date;
+
+        const data = await auditService.getAllEvents(params);
         setLogs(data);
       } catch (error) {
         console.error("Failed to fetch audit logs", error);
@@ -35,14 +43,14 @@ const AuditLogPage: React.FC = () => {
   const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFilters({ ...filters, [e.target.name]: e.target.value });
   };
-  
+
   const uniqueEventTypes = [...new Set(logs.map(log => log.event_type))];
   const uniqueResourceTypes = [...new Set(logs.map(log => log.resource_type))];
 
   return (
     <div>
       <h1 className="text-3xl font-bold mb-6">Audit Trail</h1>
-      
+
       <Card className="mb-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
           <input
@@ -77,7 +85,7 @@ const AuditLogPage: React.FC = () => {
           />
         </div>
       </Card>
-      
+
       <Card>
         {loading ? (
           <div className="flex justify-center items-center h-64"><Spinner size="lg" /></div>

@@ -1,13 +1,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { api } from '../../services/api';
-import { CaseType } from '../../types';
+import { caseService } from '../../services/cases';
+import { CaseType } from '@/types.ts';
 import Card from '../../components/ui/Card';
 import Spinner from '../../components/ui/Spinner';
 import Button from '../../components/ui/Button';
 import { ROUTES } from '../../constants';
-import PermissionGuard from '../../components/auth/PermissionGuard';
+import { useHasPermission } from '@/hooks/useHasPermission.ts';
 
 const CaseTypeListPage: React.FC = () => {
   const [caseTypes, setCaseTypes] = useState<CaseType[]>([]);
@@ -17,11 +17,15 @@ const CaseTypeListPage: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  const canCreateCaseType = useHasPermission('casetype:create');
+  const canUpdateCaseType = useHasPermission('casetype:update');
+  const canDeleteCaseType = useHasPermission('casetype:delete');
+
   const fetchItems = async () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await api.fetchCaseTypes();
+      const data = await caseService.getAllTypes();
       setCaseTypes(data);
     } catch (err) {
       console.error("Failed to fetch case types", err);
@@ -49,7 +53,7 @@ const CaseTypeListPage: React.FC = () => {
     if (!itemToDelete) return;
     setIsDeleting(true);
     try {
-      await api.deleteCaseType(itemToDelete.id);
+      await caseService.deleteType(itemToDelete.id);
       closeDeleteModal();
       await fetchItems(); // Refresh the list
     } catch (err) {
@@ -89,14 +93,14 @@ const CaseTypeListPage: React.FC = () => {
                 <td className="p-4 text-gray-300">{ct.attribute_definitions.length}</td>
                 <td className="p-4 text-right">
                   <div className="flex items-center justify-end space-x-2">
-                    <PermissionGuard permission="casetype:update">
+                    {canUpdateCaseType && (
                         <Link to={ROUTES.ADMIN_CASE_TYPES_EDIT.replace(':id', ct.id)}>
                             <Button variant="secondary" size="sm">Edit</Button>
                         </Link>
-                    </PermissionGuard>
-                    <PermissionGuard permission="casetype:delete">
+                    )}
+                    {canDeleteCaseType && (
                         <Button variant="danger" size="sm" onClick={() => openDeleteModal(ct)}>Delete</Button>
-                    </PermissionGuard>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -106,16 +110,16 @@ const CaseTypeListPage: React.FC = () => {
       </div>
     );
   };
-  
+
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">Case Type Management</h1>
-        <PermissionGuard permission="casetype:create">
+        {canCreateCaseType && (
             <Link to={ROUTES.ADMIN_CASE_TYPES_CREATE}>
                 <Button>Create New Case Type</Button>
             </Link>
-        </PermissionGuard>
+        )}
       </div>
 
       <Card>

@@ -1,10 +1,11 @@
 
-import React, { useState } from 'react';
-import { useAuthStore } from '../../store/authStore';
-import { api } from '../../services/api';
+import React, { useState, useEffect } from 'react';
+import { useAuthStore } from '@/store/authStore.ts';
+import { userService } from '../../services/users';
+import { organizationService } from '../../services/organization';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
-import { UserUpdatePayload } from '../../types';
+import { UserUpdatePayload, OrganizationalUnit } from '@/types.ts';
 
 const InputField = (props: React.InputHTMLAttributes<HTMLInputElement> & { label: string }) => (
     <div>
@@ -18,8 +19,10 @@ const InputField = (props: React.InputHTMLAttributes<HTMLInputElement> & { label
 );
 
 const ProfilePage: React.FC = () => {
-    const { user, setUser } = useAuthStore();
-    
+    const { user, setUser, permissions } = useAuthStore();
+    const [department, setDepartment] = useState<OrganizationalUnit | null>(null);
+    const [departmentLoading, setDepartmentLoading] = useState(false);
+
     // State for profile details form
     const [profileData, setProfileData] = useState({
         first_name: user?.first_name || '',
@@ -38,10 +41,29 @@ const ProfilePage: React.FC = () => {
     const [passwordLoading, setPasswordLoading] = useState(false);
     const [passwordMessage, setPasswordMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
+    // Fetch department information when component loads
+    useEffect(() => {
+        const fetchDepartment = async () => {
+            if (user?.department) {
+                setDepartmentLoading(true);
+                try {
+                    const departmentData = await organizationService.getUnitById(user.department);
+                    setDepartment(departmentData);
+                } catch (error) {
+                    console.error("Failed to fetch department information:", error);
+                } finally {
+                    setDepartmentLoading(false);
+                }
+            }
+        };
+
+        fetchDepartment();
+    }, [user?.department]);
+
     if (!user) {
         return <div className="text-center text-red-400">Could not load user profile.</div>;
     }
-    
+
     const handleProfileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setProfileData({ ...profileData, [e.target.name]: e.target.value });
     };
@@ -60,7 +82,7 @@ const ProfilePage: React.FC = () => {
                 last_name: profileData.last_name,
                 phone_number: profileData.phone_number,
             };
-            const updatedUser = await api.updateUser(user.id, payload);
+            const updatedUser = await userService.updateUser(user.id, payload);
             setUser(updatedUser); // Update user in the store
             setProfileMessage({ type: 'success', text: 'Profile updated successfully!' });
         } catch (err) {
@@ -88,7 +110,7 @@ const ProfilePage: React.FC = () => {
         }
 
         try {
-            const response = await api.changePassword(user.id, passwordData.current_password, passwordData.new_password);
+            const response = await userService.changePassword(user.id, passwordData.current_password, passwordData.new_password);
             setPasswordMessage({ type: 'success', text: response.message });
             setPasswordData({ current_password: '', new_password: '', confirm_password: '' }); // Clear fields
         } catch (err) {
@@ -97,8 +119,8 @@ const ProfilePage: React.FC = () => {
             setPasswordLoading(false);
         }
     };
-    
-    const allPermissions: Set<string> = new Set(user.roles.flatMap(role => role.permissions));
+
+    // Use permissions from auth store instead of deriving from roles
 
     return (
         <div>
@@ -117,6 +139,12 @@ const ProfilePage: React.FC = () => {
                                 <InputField label="Username (read-only)" name="username" value={user.username} readOnly />
                                 <InputField label="Email (read-only)" name="email" value={user.email} readOnly />
                                 <InputField label="Phone Number" name="phone_number" placeholder="Optional" value={profileData.phone_number} onChange={handleProfileChange} />
+                                <InputField 
+                                    label="Department (read-only)" 
+                                    name="department" 
+                                    value={departmentLoading ? "Loading..." : (department?.name || "Not assigned")} 
+                                    readOnly 
+                                />
                             </div>
 
                             {profileMessage && (
@@ -156,7 +184,7 @@ const ProfilePage: React.FC = () => {
                 <div className="lg:col-span-1">
                     <Card>
                         <h2 className="text-xl font-semibold mb-4 text-white">Roles & Permissions</h2>
-                        
+
                         <div className="space-y-4">
                             <div>
                                 <h3 className="font-semibold text-gray-300 mb-2">Assigned Roles</h3>
@@ -166,11 +194,11 @@ const ProfilePage: React.FC = () => {
                                     )) : <p className="text-gray-400 text-sm">No roles assigned.</p>}
                                 </div>
                             </div>
-                            
+
                             <div className="border-t border-gray-700 pt-4">
-                                <h3 className="font-semibold text-gray-300 mb-2">Effective Permissions ({allPermissions.size})</h3>
+                                <h3 className="font-semibold text-gray-300 mb-2">Effective Permissions ({permissions.length})</h3>
                                 <div className="max-h-[30rem] overflow-y-auto space-y-1 pr-2">
-                                    {Array.from(allPermissions).sort().map(permission => (
+                                    {permissions.sort().map(permission => (
                                         <div key={permission} className="px-2 py-1 bg-gray-700/50 rounded">
                                             <p className="font-mono text-xs text-gray-300">{permission}</p>
                                         </div>

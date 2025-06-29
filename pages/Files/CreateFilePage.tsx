@@ -1,15 +1,15 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
-import { api } from '../../services/api';
+import { fileService, organizationService } from '../../services';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Spinner from '../../components/ui/Spinner';
 import { ROUTES } from '../../constants';
 import { PhysicalLocation } from '../../types';
 
-const FileFormPage: React.FC = () => {
+const CreateFilePage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const isEditMode = !!id;
   const navigate = useNavigate();
@@ -21,7 +21,9 @@ const FileFormPage: React.FC = () => {
     file_type: 'digital' as 'digital' | 'physical',
     current_location_id: ''
   });
-  
+
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [locations, setLocations] = useState<PhysicalLocation[]>([]);
   const [loading, setLoading] = useState(false);
   const [pageLoading, setPageLoading] = useState(isEditMode);
@@ -31,7 +33,7 @@ const FileFormPage: React.FC = () => {
     const fetchRequiredData = async () => {
       try {
         if (isEditMode && id) {
-          const fileData = await api.fetchFileById(id);
+          const fileData = await fileService.getById(id);
           if (fileData) {
             setFormData({
               title: fileData.title,
@@ -40,7 +42,7 @@ const FileFormPage: React.FC = () => {
               current_location_id: fileData.current_location_id || ''
             });
             if (fileData.file_type === 'physical') {
-                const locData = await api.fetchLocations();
+                const locData = await organizationService.getAllLocations();
                 setLocations(locData);
             }
           } else {
@@ -48,7 +50,7 @@ const FileFormPage: React.FC = () => {
           }
         } else if (!isEditMode) {
             // For create mode, we might need locations if user selects 'physical'
-            const locData = await api.fetchLocations();
+            const locData = await organizationService.getAllLocations();
             setLocations(locData);
         }
       } catch (err) {
@@ -68,6 +70,14 @@ const FileFormPage: React.FC = () => {
     }
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      setSelectedFile(e.target.files[0]);
+    } else {
+      setSelectedFile(null);
+    }
+  };
+
   const validateForm = (): boolean => {
     if (!formData.title.trim()) {
         setError('Title is required.');
@@ -77,6 +87,10 @@ const FileFormPage: React.FC = () => {
         setError('A location is required for physical files.');
         return false;
     }
+    if (!isEditMode && formData.file_type === 'digital' && !selectedFile) {
+        setError('Please select a file to upload.');
+        return false;
+    }
     setError(null);
     return true;
   };
@@ -84,25 +98,61 @@ const FileFormPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm()) return;
-    
+
     setLoading(true);
-    
+
     try {
         if (isEditMode && id) {
-            await api.updateFile(id, {
+            await fileService.update(id, {
                 title: formData.title,
                 description: formData.description,
                 current_location_id: formData.current_location_id || null
             });
+            navigate(ROUTES.FILES);
         } else {
             if (!user) throw new Error("Authentication error");
-            await api.createFile({
+
+            // Create the file metadata first
+            const createdFile = await fileService.create({
                 ...formData,
                 created_by_user_id: user.id,
                 current_location_id: formData.current_location_id || null,
             });
+
+            // If it's a digital file, upload the file content
+            if (formData.file_type === 'digital' && selectedFile && createdFile) {
+                try {
+                    // Note: This is a placeholder for the actual file upload implementation
+                    // In a real application, you would use a FormData object to upload the file
+                    // to an endpoint that handles file uploads
+
+                    // Example implementation (commented out as it's not implemented in the backend):
+                    /*
+                    const formData = new FormData();
+                    formData.append('file', selectedFile);
+                    formData.append('file_id', createdFile.id);
+                    formData.append('uploaded_by_user_id', user.id);
+
+                    await fetch('/api/file-management/files/upload/', {
+                        method: 'POST',
+                        body: formData,
+                    });
+                    */
+
+                    // For now, we'll just show a success message
+                    console.log(`File ${selectedFile.name} would be uploaded for file ID: ${createdFile.id}`);
+                    alert(`File created successfully. In a real application, ${selectedFile.name} would be uploaded.`);
+                } catch (uploadErr) {
+                    console.error('Error uploading file:', uploadErr);
+                    setError('File metadata created, but file upload failed. Please try uploading the file later.');
+                    // Navigate to the file details page anyway
+                    navigate(`/files/${createdFile.id}`);
+                    return;
+                }
+            }
+
+            navigate(ROUTES.FILES);
         }
-        navigate(ROUTES.FILES);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -121,26 +171,39 @@ const FileFormPage: React.FC = () => {
         <form onSubmit={handleSubmit} className="space-y-6">
           <InputField label="Title" name="title" value={formData.title} onChange={handleInputChange} required />
           <div>
-            <label htmlFor="description" className="block text-sm font-medium text-gray-300">Description</label>
-            <textarea id="description" name="description" value={formData.description} onChange={handleInputChange} rows={4} className="mt-1 block w-full input-field" />
+            <label htmlFor="description" className="block text-sm font-medium text-gray-300 mb-1">Description</label>
+            <textarea id="description" name="description" value={formData.description} onChange={handleInputChange} rows={4} className="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition" />
           </div>
           <div>
-            <label htmlFor="file_type" className="block text-sm font-medium text-gray-300">File Type</label>
-            <select id="file_type" name="file_type" value={formData.file_type} onChange={handleInputChange} disabled={isEditMode} className="mt-1 block w-full input-field disabled:opacity-50">
+            <label htmlFor="file_type" className="block text-sm font-medium text-gray-300 mb-1">File Type</label>
+            <select id="file_type" name="file_type" value={formData.file_type} onChange={handleInputChange} disabled={isEditMode} className="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition disabled:opacity-50">
                 <option value="digital">Digital</option>
                 <option value="physical">Physical</option>
             </select>
           </div>
+          {formData.file_type === 'digital' && !isEditMode && (
+            <div>
+              <label htmlFor="file_upload" className="block text-sm font-medium text-gray-300 mb-1">Upload File</label>
+              <input 
+                type="file" 
+                id="file_upload" 
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                className="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm text-gray-300 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition"
+              />
+              <p className="mt-1 text-sm text-gray-400">Upload a digital file to create the first version.</p>
+            </div>
+          )}
           {formData.file_type === 'physical' && (
             <div>
-              <label htmlFor="current_location_id" className="block text-sm font-medium text-gray-300">Location</label>
-              <select id="current_location_id" name="current_location_id" value={formData.current_location_id} onChange={handleInputChange} className="mt-1 block w-full input-field">
+              <label htmlFor="current_location_id" className="block text-sm font-medium text-gray-300 mb-1">Location</label>
+              <select id="current_location_id" name="current_location_id" value={formData.current_location_id} onChange={handleInputChange} className="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition">
                   <option value="">Select a location</option>
                   {locations.map(loc => <option key={loc.id} value={loc.id}>{loc.name}</option>)}
               </select>
             </div>
           )}
-          
+
           {error && <p className="text-sm text-red-400 bg-red-900/50 p-3 rounded-md">{error}</p>}
 
           <div className="flex justify-end space-x-4 pt-4 border-t border-gray-700">
@@ -149,7 +212,6 @@ const FileFormPage: React.FC = () => {
           </div>
         </form>
       </Card>
-      <style>{`.input-field { background-color: #374151; border: 1px solid #4B5563; border-radius: 0.375rem; padding: 0.5rem 0.75rem; color: #F3F4F6; } .input-field:focus { outline: none; box-shadow: 0 0 0 2px #14B8A6; border-color: #14B8A6; }`}</style>
     </div>
   );
 };
@@ -162,4 +224,4 @@ const InputField = (props: React.InputHTMLAttributes<HTMLInputElement> & { label
 );
 
 
-export default FileFormPage;
+export default CreateFilePage;

@@ -2,14 +2,14 @@
 import React, { useState, useEffect } from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
-import { api } from '../../services/api';
+import { authService, notificationService } from '../../services';
 import MainLayout from '../layout/MainLayout';
 import Spinner from '../ui/Spinner';
 import { useNotificationStore } from '../../store/notificationStore';
 import { Notification } from '../../types';
 
 const PrivateRoute: React.FC = () => {
-  const { isAuthenticated, refreshToken, setTokens, setUser, logout } = useAuthStore();
+  const { isAuthenticated, refreshToken, setAuth, logout } = useAuthStore();
   const [isLoadingInitialAuth, setIsLoadingInitialAuth] = useState(true);
   const { addNotification } = useNotificationStore();
 
@@ -18,8 +18,15 @@ const PrivateRoute: React.FC = () => {
       // If already authenticated or no refresh token, finish loading
       if (isAuthenticated || !refreshToken) {
         if (!isAuthenticated && !refreshToken) {
-            // No tokens at all, ensure logged out state is clean
-            logout();
+            // No tokens at all, just ensure the state is clean without API call
+            // We don't need to call logout() here as there are no tokens to invalidate
+            useAuthStore.setState({ 
+              user: null, 
+              accessToken: null, 
+              refreshToken: null, 
+              permissions: [],
+              isAuthenticated: false 
+            });
         }
         setIsLoadingInitialAuth(false);
         return;
@@ -27,46 +34,52 @@ const PrivateRoute: React.FC = () => {
 
       // If not authenticated but has a refresh token, try to re-authenticate
       try {
-        const { accessToken, refreshToken: newRefreshToken, user } = await api.refreshAccessToken(refreshToken);
-        setTokens(accessToken, newRefreshToken);
-        setUser(user);
+        const { access, refresh, user } = await authService.refreshToken(refreshToken);
+
+        // Extract permissions from user roles
+        const permissions: string[] = [];
+        user.roles.forEach(role => {
+          if (role && role.permissions) {
+            role.permissions.forEach(permission => {
+              if (!permissions.includes(permission)) {
+                permissions.push(permission);
+              }
+            });
+          }
+        });
+
+        // Use setAuth to store user, tokens, and permissions
+        setAuth(user, access, refresh, permissions);
       } catch (error) {
         console.error('Failed to re-authenticate session:', error);
-        logout(); // Clear tokens and state on refresh failure
+        // Just clear the state without making API calls
+        useAuthStore.setState({ 
+          user: null, 
+          accessToken: null, 
+          refreshToken: null, 
+          permissions: [],
+          isAuthenticated: false 
+        });
       } finally {
         setIsLoadingInitialAuth(false);
       }
     };
 
     validateSession();
-  }, [isAuthenticated, refreshToken, setUser, setTokens, logout]);
+  }, [isAuthenticated, refreshToken, setAuth, logout]);
 
   // WebSocket Simulation
   useEffect(() => {
-    let intervalId: number | undefined;
+    let cleanupFn: (() => void) | undefined;
 
     if (isAuthenticated) {
-      console.log('Simulating WebSocket connection.');
-      // Simulate receiving a notification every 20 seconds
-      intervalId = window.setInterval(() => {
-        const newNotif: Notification = {
-          id: `notif-${Date.now()}`,
-          user_id: 'user-current',
-          message: `A new urgent task requires your attention.`,
-          type: 'system_alert',
-          read_status: false,
-          created_at: new Date().toISOString(),
-          link: '/dashboard',
-        };
-        console.log('Simulating received notification:', newNotif);
-        addNotification(newNotif);
-      }, 20000);
+      console.log('Setting up notification simulation via service.');
+      cleanupFn = notificationService.simulateNewNotification(addNotification);
     }
 
     return () => {
-      if (intervalId) {
-        console.log('Closing simulated WebSocket connection.');
-        clearInterval(intervalId);
+      if (cleanupFn) {
+        cleanupFn();
       }
     };
   }, [isAuthenticated, addNotification]);

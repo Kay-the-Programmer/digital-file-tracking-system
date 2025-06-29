@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useNotificationStore } from '../../store/notificationStore';
-import { api } from '../../services/api';
+import { notificationService } from '../../services/notifications';
 import { ICONS, ROUTES } from '../../constants';
 import Button from '../ui/Button';
 
@@ -15,13 +15,22 @@ const NotificationBell: React.FC = () => {
   useEffect(() => {
     const fetchInitialNotifications = async () => {
       try {
-        const data = await api.fetchNotifications();
+        const data = await notificationService.getAll();
         setNotifications(data);
       } catch (error) {
         console.error("Failed to fetch notifications", error);
       }
     };
     fetchInitialNotifications();
+
+    // Set up real-time notification simulation
+    const cleanup = notificationService.simulateNewNotification((newNotification) => {
+      useNotificationStore.getState().addNotification(newNotification);
+    });
+
+    return () => {
+      cleanup(); // Clean up the simulation when component unmounts
+    };
   }, [setNotifications]);
 
   useEffect(() => {
@@ -37,13 +46,13 @@ const NotificationBell: React.FC = () => {
   const handleMarkOneAsRead = async (notificationId: string) => {
     markAsRead(notificationId); // Optimistic update
     try {
-      await api.markNotificationAsRead(notificationId);
+      await notificationService.markAsRead(notificationId);
     } catch (error) {
       console.error("Failed to mark notification as read", error);
       // Revert state if API call fails (not implemented for this mock)
     }
   };
-  
+
   const handleNotificationClick = (notification: typeof notifications[0]) => {
     if (!notification.read_status) {
       handleMarkOneAsRead(notification.id);
@@ -75,7 +84,14 @@ const NotificationBell: React.FC = () => {
         <div className="absolute right-0 mt-2 w-80 md:w-96 bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-50">
           <div className="p-3 border-b border-gray-700 flex justify-between items-center">
             <h3 className="font-semibold text-white">Notifications</h3>
-            {unreadCount > 0 && <Button size="sm" variant="secondary" onClick={() => { markAllAsRead(); }}>Mark all as read</Button>}
+            {unreadCount > 0 && <Button size="sm" variant="secondary" onClick={async () => { 
+              markAllAsRead(); // Optimistic update
+              try {
+                await notificationService.markAllAsRead();
+              } catch (error) {
+                console.error("Failed to mark all notifications as read", error);
+              }
+            }}>Mark all as read</Button>}
           </div>
           <div className="max-h-96 overflow-y-auto">
             {recentUnread.length > 0 ? (

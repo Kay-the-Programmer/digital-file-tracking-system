@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { api } from '../../services/api';
+import { fileService, organizationService } from '../../services';
 import { File as FileType, DigitalFileVersion, FileMovement, PhysicalLocation } from '../../types';
 import Card from '../../components/ui/Card';
 import Spinner from '../../components/ui/Spinner';
@@ -78,11 +78,11 @@ const FileDetailsPage: React.FC = () => {
       try {
         setLoading(true);
         setError(null);
-        const data = await api.fetchFileById(id);
+        const data = await fileService.getById(id);
         if (data) {
           setFile(data);
           if (data.file_type === 'physical') {
-            const locData = await api.fetchLocations();
+            const locData = await organizationService.getAllLocations();
             setLocations(locData);
           }
         } else {
@@ -105,7 +105,7 @@ const FileDetailsPage: React.FC = () => {
     if (!file) return;
     setIsProcessing(true);
     try {
-        await api.deleteFile(file.id);
+        await fileService.delete(file.id);
         setDeleteModalOpen(false);
         navigate(ROUTES.FILES);
     } catch(err) {
@@ -123,7 +123,7 @@ const FileDetailsPage: React.FC = () => {
     setIsProcessing(true);
     setError(null);
     try {
-        await api.movePhysicalFile(file.id, newLocationId, moveReason);
+        await fileService.movePhysicalFile(file.id, newLocationId, moveReason);
         setMoveModalOpen(false);
         setNewLocationId('');
         setMoveReason('');
@@ -143,7 +143,7 @@ const FileDetailsPage: React.FC = () => {
   if (error || !file) {
     return <div className="text-center text-xl text-red-400">{error || 'File not found.'}</div>;
   }
-  
+
   const isDigital = file.file_type === 'digital';
 
   return (
@@ -161,7 +161,7 @@ const FileDetailsPage: React.FC = () => {
                 </PermissionGuard>
              </div>
         </div>
-     
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
             <Card>
@@ -176,7 +176,7 @@ const FileDetailsPage: React.FC = () => {
                       {file.file_type}
                     </span>
                 </div>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 border-t border-gray-700 pt-4">
                     <DetailItem label="File ID" value={<span className="font-mono text-sm">{file.id}</span>} />
                     <DetailItem label="Created By" value={file.created_by_username} />
@@ -195,7 +195,7 @@ const FileDetailsPage: React.FC = () => {
              {isDigital && file.digital_file_versions && file.digital_file_versions.length > 0 && <DigitalVersionHistory versions={file.digital_file_versions} />}
              {!isDigital && file.file_movements && <PhysicalMovementHistory movements={file.file_movements} />}
         </div>
-        
+
         <div className="space-y-6">
           <Card>
             <h2 className="text-xl font-semibold mb-4">Actions</h2>
@@ -207,7 +207,7 @@ const FileDetailsPage: React.FC = () => {
           </Card>
         </div>
       </div>
-      
+
       {isDeleteModalOpen && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
           <Card className="w-full max-w-md">

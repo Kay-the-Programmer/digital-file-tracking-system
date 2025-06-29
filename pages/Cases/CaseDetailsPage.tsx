@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { api } from '../../services/api';
+import { caseService, workflowService } from '../../services';
 import { Case as CaseType, WorkflowInstance, File, CaseStatus, WorkflowTemplate, WorkflowStepDefinition } from '../../types';
 import Card from '../../components/ui/Card';
 import Spinner from '../../components/ui/Spinner';
@@ -73,14 +73,14 @@ const CaseDetailsPage: React.FC = () => {
       try {
         setLoading(true);
         setError(null);
-        const caseData = await api.fetchCaseById(id);
+        const caseData = await caseService.getById(id);
 
         if (caseData) {
             setCaseItem(caseData);
-            const instanceData = await api.fetchWorkflowInstanceById(id);
+            const instanceData = await workflowService.getInstanceById(id);
             if (instanceData) {
                 setWorkflowInstance(instanceData);
-                const templates = await api.fetchWorkflowTemplates();
+                const templates = await workflowService.getAllTemplates();
                 const matchingTemplate = templates.find(t => t.name === instanceData.workflow_template_name);
                 if(matchingTemplate) {
                   setWorkflowTemplate(matchingTemplate);
@@ -106,12 +106,12 @@ const CaseDetailsPage: React.FC = () => {
     setActionToPerform(action);
     setIsActionModalOpen(true);
   };
-  
+
   const handleConfirmAction = async (comments: string) => {
     if (id && actionToPerform) {
       setActionLoading(true);
       try {
-        await api.performWorkflowAction({ case_id: id, action: actionToPerform, comments });
+        await workflowService.performAction(id, { action: actionToPerform, comments });
         await fetchData(); // Refetch data
       } catch(err) {
         setError((err as Error).message || "Failed to perform action.");
@@ -127,7 +127,7 @@ const CaseDetailsPage: React.FC = () => {
     if (!caseItem) return;
     setActionLoading(true);
     try {
-        await api.deleteCase(caseItem.id);
+        await caseService.delete(caseItem.id);
         setIsDeleteModalOpen(false);
         navigate(ROUTES.CASES);
     } catch(err) {
@@ -144,7 +144,7 @@ const CaseDetailsPage: React.FC = () => {
   if (error || !caseItem) {
     return <div className="text-center text-xl text-red-400">{error || 'Case not found.'}</div>;
   }
-  
+
   const getStatusColor = (status: CaseType['status']) => {
     switch(status) {
         case CaseStatus.OPEN: return 'bg-blue-600/50 text-blue-200 border border-blue-500';
@@ -189,7 +189,7 @@ const CaseDetailsPage: React.FC = () => {
                     </span>
                 </div>
                 <p className="text-gray-400 mb-6">{caseItem.description}</p>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 border-t border-gray-700 pt-6">
                     <DetailItem label="Case ID" value={caseItem.id} />
                     <DetailItem label="Case Type" value={caseItem.case_type} />

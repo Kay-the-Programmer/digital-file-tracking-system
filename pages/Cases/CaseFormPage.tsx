@@ -1,9 +1,8 @@
-
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useAuthStore } from '../../store/authStore';
-import { api } from '../../services/api';
+import { useAuthStore } from '@/store/authStore.ts';
+import { useHasPermission } from '@/hooks/useHasPermission.ts';
+import { caseService, fileService } from '../../services';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Spinner from '../../components/ui/Spinner';
@@ -37,8 +36,9 @@ const CaseFormPage: React.FC = () => {
     const { id: caseId } = useParams<{ id: string }>();
     const isEditMode = !!caseId;
     const navigate = useNavigate();
-    const { user, hasPermission } = useAuthStore();
-    
+    const { user } = useAuthStore();
+    useHasPermission('case:update');
+    useHasPermission('case:create');
     const [formData, setFormData] = useState({
         title: '',
         case_type: '',
@@ -59,8 +59,8 @@ const CaseFormPage: React.FC = () => {
             setLoading(true);
             try {
                 const [filesData, caseTypesData] = await Promise.all([
-                    api.fetchFiles(),
-                    api.fetchCaseTypes()
+                    fileService.getAll(),
+                    caseService.getAllTypes()
                 ]);
                 setAvailableFiles(filesData);
                 setAllCaseTypes(caseTypesData);
@@ -70,7 +70,7 @@ const CaseFormPage: React.FC = () => {
                 }
 
                 if (isEditMode && caseId) {
-                    const caseData = await api.fetchCaseById(caseId);
+                    const caseData = await caseService.getById(caseId);
                     if (caseData) {
                         setFormData({
                             title: caseData.title,
@@ -127,7 +127,7 @@ const CaseFormPage: React.FC = () => {
         }
         setIsSubmitting(true);
         setError(null);
-        
+
         try {
             if (isEditMode && caseId) {
                 const payload: CaseUpdatePayload = {
@@ -137,7 +137,7 @@ const CaseFormPage: React.FC = () => {
                     attributes: formData.attributes,
                     status: formData.status,
                 };
-                const updatedCase = await api.updateCase(caseId, payload);
+                const updatedCase = await caseService.update(caseId, payload);
                 navigate(`/cases/${updatedCase.id}`);
             } else {
                 const payload: CaseCreationPayload = {
@@ -148,7 +148,7 @@ const CaseFormPage: React.FC = () => {
                     attributes: formData.attributes,
                     initiated_by_user_id: user.id,
                 };
-                const newCase = await api.createCase(payload);
+                const newCase = await caseService.create(payload);
                 navigate(`/cases/${newCase.id}`);
             }
         } catch (err) {
@@ -157,14 +157,14 @@ const CaseFormPage: React.FC = () => {
             setIsSubmitting(false);
         }
     };
-    
+
     const selectedCaseTypeDefinition = allCaseTypes.find(ct => ct.name === formData.case_type);
 
     if (loading) {
         return <div className="flex justify-center items-center h-full"><Spinner size="lg" /></div>;
     }
 
-    const permissionRequired = isEditMode ? 'case:update' : 'case:create';
+    // We're using PermissionGuard component which already uses useHasPermission internally
 
     return (
         <PermissionGuard permission={isEditMode ? 'case:read' : 'case:create'}>
@@ -175,11 +175,8 @@ const CaseFormPage: React.FC = () => {
                 </p>
                 <Card className="max-w-4xl mx-auto">
                     <form onSubmit={handleSubmit} className="space-y-6">
-                        <div>
-                            <label htmlFor="title" className="block text-sm font-medium text-gray-300">Case Title</label>
-                            <input id="title" name="title" value={formData.title} onChange={handleInputChange} required className="mt-1 block w-full input-field" />
-                        </div>
-                        
+                        <InputField label="Case Title" name="title" value={formData.title} onChange={handleInputChange} required />
+
                         <div>
                             <label htmlFor="case_type" className="block text-sm font-medium text-gray-300">Case Type</label>
                             <select id="case_type" name="case_type" value={formData.case_type} onChange={handleInputChange} required disabled={isEditMode}
@@ -194,7 +191,7 @@ const CaseFormPage: React.FC = () => {
                             <label htmlFor="description" className="block text-sm font-medium text-gray-300">Description</label>
                             <textarea id="description" name="description" value={formData.description} onChange={handleInputChange} rows={4} required className="mt-1 block w-full input-field" />
                         </div>
-                        
+
                         {/* Dynamic attributes */}
                         {selectedCaseTypeDefinition && selectedCaseTypeDefinition.attribute_definitions.length > 0 && (
                              <div className="p-4 bg-gray-700/50 rounded-lg space-y-4">
@@ -211,7 +208,7 @@ const CaseFormPage: React.FC = () => {
                                 </div>
                             </div>
                         )}
-                       
+
 
                         {/* File association */}
                         <div>
@@ -242,7 +239,7 @@ const CaseFormPage: React.FC = () => {
 
                         <div className="flex justify-end space-x-4 pt-4 border-t border-gray-700">
                             <Button type="button" variant="secondary" onClick={() => navigate(isEditMode ? `/cases/${caseId}` : ROUTES.CASES)}>Cancel</Button>
-                            <PermissionGuard permission={permissionRequired}>
+                            <PermissionGuard permission={isEditMode ? 'case:update' : 'case:create'}>
                                 <Button type="submit" isLoading={isSubmitting}>{isEditMode ? 'Save Changes' : 'Create Case'}</Button>
                             </PermissionGuard>
                         </div>
@@ -253,5 +250,12 @@ const CaseFormPage: React.FC = () => {
         </PermissionGuard>
     );
 };
+
+const InputField = (props: React.InputHTMLAttributes<HTMLInputElement> & { label: string }) => (
+    <div>
+        <label htmlFor={props.name} className="block text-sm font-medium text-gray-300 mb-1">{props.label}</label>
+        <input id={props.name} {...props} className="mt-1 block w-full input-field" />
+    </div>
+);
 
 export default CaseFormPage;

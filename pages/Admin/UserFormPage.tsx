@@ -1,8 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { api } from '../../services/api';
-import { Role, UserCreationPayload, UserUpdatePayload } from '../../types';
+import { userService } from '../../services/users';
+import { organizationService } from '../../services/organization';
+import { Role, UserCreationPayload, UserUpdatePayload, OrganizationalUnit } from '../../types';
 import Card from '../../components/ui/Card';
 import Spinner from '../../components/ui/Spinner';
 import Button from '../../components/ui/Button';
@@ -24,8 +25,9 @@ const UserFormPage: React.FC = () => {
     is_active: true,
     role_ids: [] as string[],
   });
-  
+
   const [allRoles, setAllRoles] = useState<Role[]>([]);
+  const [departments, setDepartments] = useState<OrganizationalUnit[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,11 +35,16 @@ const UserFormPage: React.FC = () => {
     const fetchInitialData = async () => {
       setLoading(true);
       try {
-        const rolesData = await api.fetchRoles();
+        const [rolesData, departmentsData] = await Promise.all([
+          userService.getAllRoles(),
+          organizationService.getAllUnits()
+        ]);
+
         setAllRoles(rolesData);
+        setDepartments(departmentsData);
 
         if (isEditMode && id) {
-          const userData = await api.fetchUserByIdProfile(id);
+          const userData = await userService.getUserById(id);
           if (userData) {
             setFormData({
               username: userData.username,
@@ -95,11 +102,11 @@ const UserFormPage: React.FC = () => {
             last_name: formData.last_name,
             email: formData.email,
             phone_number: formData.phone_number,
-            department_id: formData.department_id,
+            department_id: formData.department_id || undefined,
             is_active: formData.is_active,
             role_ids: formData.role_ids,
         };
-        await api.updateUser(id, payload);
+        await userService.updateUser(id, payload);
       } else {
         const payload: UserCreationPayload = {
             username: formData.username,
@@ -107,11 +114,11 @@ const UserFormPage: React.FC = () => {
             first_name: formData.first_name,
             last_name: formData.last_name,
             email: formData.email,
-            phone_number: formData.phone_number,
-            department_id: formData.department_id,
+            phone_number: formData.phone_number || undefined,
+            department_id: formData.department_id || undefined,
             role_ids: formData.role_ids,
         };
-        await api.createUser(payload);
+        await userService.createUser(payload);
       }
       navigate(ROUTES.ADMIN_USERS);
     } catch (err) {
@@ -137,6 +144,22 @@ const UserFormPage: React.FC = () => {
             <InputField label="Last Name" name="last_name" value={formData.last_name} onChange={handleInputChange} required />
             <InputField label="Email" name="email" type="email" value={formData.email} onChange={handleInputChange} required />
             <InputField label="Phone Number" name="phone_number" value={formData.phone_number} onChange={handleInputChange} />
+
+            <div>
+              <label htmlFor="department_id" className="block text-sm font-medium text-gray-300 mb-1">Department</label>
+              <select
+                id="department_id"
+                name="department_id"
+                value={formData.department_id}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition"
+              >
+                <option value="">Select a department</option>
+                {departments.map(dept => (
+                  <option key={dept.id} value={dept.id}>{dept.name}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div>
@@ -150,7 +173,7 @@ const UserFormPage: React.FC = () => {
                   ))}
               </div>
           </div>
-          
+
           {isEditMode && (
             <div>
               <label className="flex items-center space-x-2 cursor-pointer">
@@ -161,7 +184,7 @@ const UserFormPage: React.FC = () => {
           )}
 
           {error && <p className="text-sm text-red-400 bg-red-900/50 p-3 rounded-md">{error}</p>}
-          
+
           <div className="flex justify-end space-x-4 pt-4 border-t border-gray-700">
             <Button type="button" variant="secondary" onClick={() => navigate(ROUTES.ADMIN_USERS)}>Cancel</Button>
             <Button type="submit" isLoading={loading}>{isEditMode ? 'Save Changes' : 'Create User'}</Button>

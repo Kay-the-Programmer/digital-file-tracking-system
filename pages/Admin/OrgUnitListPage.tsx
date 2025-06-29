@@ -1,13 +1,13 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { api } from '../../services/api';
-import { OrganizationalUnit } from '../../types';
+import { organizationService } from '../../services/organization';
+import { OrganizationalUnit } from '@/types.ts';
 import Card from '../../components/ui/Card';
 import Spinner from '../../components/ui/Spinner';
 import Button from '../../components/ui/Button';
 import { ROUTES } from '../../constants';
-import PermissionGuard from '../../components/auth/PermissionGuard';
+import { useHasPermission } from '@/hooks/useHasPermission.ts';
 
 const OrgUnitListPage: React.FC = () => {
   const [units, setUnits] = useState<OrganizationalUnit[]>([]);
@@ -16,12 +16,19 @@ const OrgUnitListPage: React.FC = () => {
   const [itemToDelete, setItemToDelete] = useState<OrganizationalUnit | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterUnitType, setFilterUnitType] = useState('all');
+
+  const canUpdateUnit = useHasPermission('org:update');
+  const canCreateUnit = useHasPermission('org:create');
+  const canDeleteUnit = useHasPermission('org:delete');
 
   const fetchItems = async () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await api.fetchOrganizationalUnits();
+      const data = await organizationService.getAllUnits();
       setUnits(data);
     } catch (err) {
       console.error("Failed to fetch org units", err);
@@ -30,6 +37,31 @@ const OrgUnitListPage: React.FC = () => {
       setLoading(false);
     }
   };
+
+  const uniqueUnitTypes = useMemo(() => {
+    if (!units) return [];
+    const types = new Set(units.map(unit => unit.unit_type));
+    return Array.from(types);
+  }, [units]);
+
+  const filteredUnits = useMemo(() => {
+    if (!units) return [];
+    let filtered = units;
+
+    if (filterUnitType !== 'all') {
+      filtered = filtered.filter(unit => unit.unit_type === filterUnitType);
+    }
+
+    if (searchTerm) {
+      const lowerCaseSearchTerm = searchTerm.toLowerCase();
+      filtered = filtered.filter(
+        unit =>
+          unit.name.toLowerCase().includes(lowerCaseSearchTerm) ||
+          (unit.description && unit.description.toLowerCase().includes(lowerCaseSearchTerm))
+      );
+    }
+    return filtered;
+  }, [units, filterUnitType, searchTerm]);
 
   useEffect(() => {
     fetchItems();
@@ -43,18 +75,20 @@ const OrgUnitListPage: React.FC = () => {
   const closeDeleteModal = () => {
     setItemToDelete(null);
     setIsModalOpen(false);
+    setDeleteError(null);
   };
 
   const handleDelete = async () => {
     if (!itemToDelete) return;
     setIsDeleting(true);
+    setDeleteError(null);
     try {
-      await api.deleteOrganizationalUnit(itemToDelete.id);
+      await organizationService.deleteUnit(itemToDelete.id);
       closeDeleteModal();
       await fetchItems(); // Refresh the list
     } catch (err) {
-      setError("Failed to delete unit.");
-      console.error(err);
+      console.error("Failed to delete unit", err);
+      setDeleteError(`Failed to delete unit: ${err instanceof Error ? err.message : 'Unknown error occurred'}`);
     } finally {
       setIsDeleting(false);
     }
@@ -67,8 +101,8 @@ const OrgUnitListPage: React.FC = () => {
     if (error) {
       return <div className="text-center py-10 text-red-400 bg-red-900/30 rounded-lg">{error}</div>;
     }
-    if (units.length === 0) {
-      return <div className="text-center py-10 text-gray-500">No units found.</div>;
+    if (filteredUnits.length === 0) {
+      return <div className="text-center py-10 text-gray-500">No units found matching your criteria.</div>;
     }
     return (
       <div className="overflow-x-auto">
@@ -82,7 +116,7 @@ const OrgUnitListPage: React.FC = () => {
             </tr>
           </thead>
           <tbody>
-            {units.map(unit => (
+            {filteredUnits.map(unit => (
               <tr key={unit.id} className="border-b border-gray-700 hover:bg-gray-800">
                 <td className="p-4 font-medium">{unit.name}</td>
                 <td className="p-4">
@@ -93,14 +127,14 @@ const OrgUnitListPage: React.FC = () => {
                 <td className="p-4 text-gray-400">{unit.parent_name || 'N/A (Top-Level)'}</td>
                 <td className="p-4 text-right">
                   <div className="flex items-center justify-end space-x-2">
-                    <PermissionGuard permission="org:update">
-                        <Link to={ROUTES.ADMIN_ORG_UNITS_EDIT.replace(':id', unit.id)}>
-                            <Button variant="secondary" size="sm">Edit</Button>
-                        </Link>
-                    </PermissionGuard>
-                    <PermissionGuard permission="org:delete">
-                        <Button variant="danger" size="sm" onClick={() => openDeleteModal(unit)}>Delete</Button>
-                    </PermissionGuard>
+                    {canUpdateUnit && (
+                      <Link to={ROUTES.ADMIN_ORG_UNITS_EDIT.replace(':id', unit.id)}>
+                        <Button variant="secondary" size="sm">Edit</Button>
+                      </Link>
+                    )}
+                    {canDeleteUnit && (
+                      <Button variant="danger" size="sm" onClick={() => openDeleteModal(unit)}>Delete</Button>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -110,19 +144,40 @@ const OrgUnitListPage: React.FC = () => {
       </div>
     );
   };
-  
+
   return (
     <div>
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
         <h1 className="text-3xl font-bold">Organizational Unit Management</h1>
-        <PermissionGuard permission="org:create">
-            <Link to={ROUTES.ADMIN_ORG_UNITS_CREATE}>
-                <Button>Create New Unit</Button>
-            </Link>
-        </PermissionGuard>
+        {canCreateUnit && (
+          <Link to={ROUTES.ADMIN_ORG_UNITS_CREATE}>
+            <Button>Create New Unit</Button>
+          </Link>
+        )}
       </div>
 
       <Card>
+        <div className="flex flex-col md:flex-row justify-between items-center mb-4 gap-4 p-4 bg-gray-800 rounded-lg">
+          <input
+            type="text"
+            placeholder="Search units..."
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            className="w-full md:w-1/3 px-3 py-2 bg-gray-700 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 transition"
+          />
+          {uniqueUnitTypes.length > 0 && (
+            <select
+              value={filterUnitType}
+              onChange={e => setFilterUnitType(e.target.value)}
+              className="w-full sm:w-auto bg-gray-700 border border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500 transition"
+            >
+              <option value="all">All Unit Types</option>
+              {uniqueUnitTypes.map(type => (
+                <option key={type} value={type}>{type.replace(/_/g, ' ').toLowerCase()}</option>
+              ))}
+            </select>
+          )}
+        </div>
         {renderContent()}
       </Card>
 
@@ -130,10 +185,26 @@ const OrgUnitListPage: React.FC = () => {
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
           <Card className="w-full max-w-md">
             <h2 className="text-xl font-bold mb-4">Delete Organizational Unit</h2>
-            <p className="text-gray-300 mb-6">Are you sure you want to delete unit <span className="font-bold">{itemToDelete.name}</span>? This action cannot be undone and may affect child units.</p>
+            {deleteError ? (
+              <div className="bg-red-900/30 text-red-400 p-3 rounded-md mb-4">
+                {deleteError}
+              </div>
+            ) : (
+              <p className="text-gray-300 mb-6">
+                Are you sure you want to delete unit <span className="font-bold">{itemToDelete.name}</span>? 
+                This action cannot be undone and may affect child units.
+              </p>
+            )}
             <div className="flex justify-end space-x-4">
               <Button variant="secondary" onClick={closeDeleteModal} disabled={isDeleting}>Cancel</Button>
-              <Button variant="danger" onClick={handleDelete} isLoading={isDeleting}>Delete</Button>
+              <Button 
+                variant="danger" 
+                onClick={handleDelete} 
+                isLoading={isDeleting}
+                disabled={isDeleting}
+              >
+                {deleteError ? 'Retry' : 'Delete'}
+              </Button>
             </div>
           </Card>
         </div>

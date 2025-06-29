@@ -1,12 +1,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { api } from '../../services/api';
-import { UserProfile } from '../../types';
+import { userService } from '../../services';
+import { UserProfile } from '@/types.ts';
 import Card from '../../components/ui/Card';
 import Spinner from '../../components/ui/Spinner';
 import Button from '../../components/ui/Button';
-import { ROUTES, ICONS } from '../../constants';
+import { ROUTES } from '../../constants';
 import PermissionGuard from '../../components/auth/PermissionGuard';
 
 const UserManagementPage: React.FC = () => {
@@ -21,7 +21,7 @@ const UserManagementPage: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await api.fetchUserProfiles();
+      const data = await userService.getAllUsers();
       setUsers(data);
     } catch (err) {
       console.error("Failed to fetch users", err);
@@ -49,7 +49,7 @@ const UserManagementPage: React.FC = () => {
     if (!userToDelete) return;
     setIsDeleting(true);
     try {
-      await api.deleteUser(userToDelete.id);
+      await userService.deleteUser(userToDelete.id);
       closeDeleteModal();
       await fetchUsers(); // Refresh the list
     } catch (err) {
@@ -114,7 +114,7 @@ const UserManagementPage: React.FC = () => {
       </div>
     );
   };
-  
+
   return (
     <div>
       <div className="flex justify-between items-center mb-6">

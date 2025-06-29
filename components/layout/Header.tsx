@@ -43,7 +43,7 @@ const Header: React.FC = () => {
             </Link>
             <div className="my-1 border-t border-gray-600"></div>
             <button
-              onClick={() => { logout(); setDropdownOpen(false); }}
+              onClick={async () => { await logout(); setDropdownOpen(false); }}
               className="w-full flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-600 hover:text-white"
             >
               <ICONS.LOGOUT className="h-5 w-5 mr-3" />

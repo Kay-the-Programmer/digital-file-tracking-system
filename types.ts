@@ -1,4 +1,3 @@
-
 export enum UserRole {
   USER = 'User',
   DEPARTMENT_HEAD = 'DepartmentHead',
@@ -137,11 +136,23 @@ export interface WorkflowInstance { // Renamed from WorkflowStatus for clarity
 }
 
 
-export interface Department {
-    id: string;
-    name: string;
-    head: string;
-    subUnits: Department[];
+// Department interface removed as it's been replaced by OrganizationalUnit
+
+export interface KPI {
+  id: string;
+  label: string;
+  value: number;
+  unit?: string;
+  description?: string;
+  color?: string;
+}
+
+export interface RecentActivity {
+  id: string;
+  timestamp: string;
+  description: string;
+  type: 'case' | 'file' | 'user' | 'system';
+  link?: string;
 }
 
 export interface AuditLog {
@@ -204,6 +215,13 @@ export interface Role {
   updated_at: string;
 }
 
+export interface LoginResponse {
+  access: string;
+  refresh: string;
+  user: UserProfile;
+  permissions: string[];
+}
+
 export interface UserProfile {
   id: string;
   username: string;
@@ -211,7 +229,7 @@ export interface UserProfile {
   last_name: string;
   email: string;
   phone_number?: string;
-  department_id?: string; // Link to OrganizationalUnit
+  department?: string; // Link to OrganizationalUnit
   is_active: boolean;
   roles: Role[]; // Full role objects
   created_at: string;

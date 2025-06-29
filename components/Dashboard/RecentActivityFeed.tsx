@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import Card from '../ui/Card';
 import Spinner from '../ui/Spinner';
-import { RecentActivity } from '../../services/api';
+import { RecentActivity } from '../../types';
 import { ICONS } from '../../constants';
 
 interface RecentActivityFeedProps {
