@@ -1,5 +1,6 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { ToastProvider } from './context/ToastContext';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import FileListPage from './pages/Files/FileListPage';
@@ -33,6 +34,7 @@ import WorkflowInstanceListPage from './pages/Admin/WorkflowInstanceListPage';
 
 const App: React.FC = () => {
   return (
+    <ToastProvider>
       <BrowserRouter>
         <Routes>
           <Route path={ROUTES.LOGIN} element={<LoginPage />} />
@@ -84,6 +86,7 @@ const App: React.FC = () => {
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </BrowserRouter>
+    </ToastProvider>
   );
 };
 

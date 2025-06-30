@@ -67,7 +67,6 @@ const DashboardPage: React.FC = () => {
             <div className="space-y-8">
                 {/* KPIs Section */}
                 <div>
-                    <h2 className="text-2xl font-semibold text-white mb-4">Key Metrics</h2>
                     {loadingKpis ? (
                         <div className="flex justify-center items-center h-32"><Spinner size="lg" /></div>
                     ) : kpisError ? (

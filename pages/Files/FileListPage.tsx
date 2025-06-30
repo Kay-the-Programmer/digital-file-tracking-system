@@ -15,7 +15,7 @@ const FileListPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState<'all' | 'digital' | 'physical'>('all');
+  const [filterType, setFilterType] = useState<'all' | 'DIGITAL' | 'PHYSICAL'>('all');
   const [fileToDelete, setFileToDelete] = useState<File | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -125,12 +125,12 @@ const FileListPage: React.FC = () => {
             <span className="text-gray-300">Filter by type:</span>
             <select
               value={filterType}
-              onChange={e => setFilterType(e.target.value as 'all' | 'digital' | 'physical')}
+              onChange={e => setFilterType(e.target.value as 'all' | 'DIGITAL' | 'PHYSICAL')}
               className="bg-gray-700 border border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500 transition"
             >
               <option value="all">All</option>
-              <option value="digital">Digital</option>
-              <option value="physical">Physical</option>
+              <option value="DIGITAL">Digital</option>
+              <option value="PHYSICAL">Physical</option>
             </select>
           </div>
         </div>

@@ -10,7 +10,4 @@ export { dashboardService } from './dashboard';
 export { auditService } from './audit';
 
 // Export API utilities
-export { apiRequest, mockApiCall } from './utils/apiUtils';
-
-// Export mock services
-export { mockServices } from './mock';
+export { apiRequest, apiFileUpload, mockApiCall } from './utils/apiUtils';

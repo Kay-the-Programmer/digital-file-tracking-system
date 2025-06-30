@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { caseService } from '../../services/cases';
-import { CaseTypeAttribute, CaseTypeCreationPayload, CaseTypeUpdatePayload } from '../../types';
+import { CaseTypeAttribute, CaseTypeCreationPayload, CaseTypeUpdatePayload } from '@/types.ts';
 import Card from '../../components/ui/Card';
 import Spinner from '../../components/ui/Spinner';
 import Button from '../../components/ui/Button';

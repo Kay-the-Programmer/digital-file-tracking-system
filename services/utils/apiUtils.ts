@@ -1,9 +1,13 @@
 // --- API SETUP ---
 export const API_BASE_URL = 'http://127.0.0.1:8000/api/v1';
 
-export const getAuthHeaders = (): HeadersInit => {
+const getAuthHeaders = (isFormData: boolean = false): HeadersInit => {
     const token = localStorage.getItem('access_token');
-    const headers: HeadersInit = { 'Content-Type': 'application/json' };
+
+    // For FormData, we do NOT set the 'Content-Type'. The browser does it automatically
+    // and includes the necessary boundary string. For all other requests, we set it to application/json.
+    const headers: HeadersInit = isFormData ? {} : { 'Content-Type': 'application/json' };
+
     if (token) {
         headers['Authorization'] = `Bearer ${token}`;
     }
@@ -107,6 +111,26 @@ export const apiRequest = async <T>(method: string, path: string, body: any = nu
     return response.status === 204 ? (null as T) : (response.json() as Promise<T>);
 };
 
+// File upload API utility
+export const apiFileUpload = async <T>(path: string, file: File): Promise<T> => {
+    const formData = new FormData();
+    formData.append('file', file); // The backend expects a field named 'file'
+
+    const options: RequestInit = {
+        method: 'POST',
+        headers: getAuthHeaders(true), // Pass true to avoid setting Content-Type
+        body: formData,
+    };
+
+    const response = await fetch(`${API_BASE_URL}${path}`, options);
+
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || `File upload failed: ${response.statusText}`);
+    }
+
+    return response.json() as Promise<T>;
+};
 // Mock API utility for development
 export const mockApiCall = <T,>(data: T, delay = 500): Promise<T> => {
     return new Promise(resolve => {

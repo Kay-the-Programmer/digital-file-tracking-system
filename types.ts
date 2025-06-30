@@ -22,7 +22,7 @@ export interface DigitalFileVersion {
   file_size: number; // in bytes
   uploaded_by_user_id: string;
   uploaded_at: string; // ISO string
-  uploaded_by_username?: string; // For display
+  uploaded_by_email?: string; // For display
 }
 
 export interface FileMovement {
@@ -39,23 +39,30 @@ export interface FileMovement {
 }
 
 export interface File {
+  file_movements: [];
   id: string;
   title: string;
   description: string;
-  file_type: 'digital' | 'physical';
-  current_location_id: string | null; // ID of PhysicalLocation
-  created_by_user_id: string;
+  // The backend sends uppercase values for file_type
+  file_type: 'DIGITAL' | 'PHYSICAL';
+
+  // The backend sends the ID in a field named 'current_location'
+  current_location: string | null;
+  // The backend also sends the name for easy display
+  current_location_name: string | null;
+
+  // The backend sends the creator's ID in a field named 'created_by'
+  created_by: string;
+  // The backend also sends the email for easy display
+  created_by_email: string;
+
   created_at: string; // ISO string
   updated_at: string; // ISO string
-  current_case_id: string | null; // ID of associated Case
+  current_case: string | null; // ID of associated Case
 
-  // Frontend-only properties for detailed view
-  digital_file_versions?: DigitalFileVersion[];
-  file_movements?: FileMovement[];
-  current_location_name?: string; // For display
-  created_by_username?: string; // For display
+  // This is correct, as the serializer nests the version history
+  versions: DigitalFileVersion[];
 }
-
 
 export enum CaseStatus {
   OPEN = 'Open',
@@ -299,8 +306,8 @@ export interface OrgUnitUpdatePayload {
 export interface FileCreationPayload {
   title: string;
   description: string;
-  file_type: 'digital' | 'physical';
-  current_location_id?: string | null;
+  file_type: 'DIGITAL' | 'PHYSICAL';
+  current_location?: string | null;
   created_by_user_id: string;
   current_case_id?: string | null;
 }
@@ -308,7 +315,7 @@ export interface FileCreationPayload {
 export interface FileUpdatePayload {
   title?: string;
   description?: string;
-  current_location_id?: string | null;
+  current_location?: string | null;
   current_case_id?: string | null;
 }
 

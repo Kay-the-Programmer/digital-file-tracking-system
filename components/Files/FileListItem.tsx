@@ -12,7 +12,7 @@ interface FileListItemProps {
 }
 
 const FileListItem: React.FC<FileListItemProps> = ({ file, onDelete }) => {
-  const isDigital = file.file_type === 'digital';
+  const isDigital = file.file_type === 'DIGITAL';
 
   return (
     <tr className="border-b border-gray-700 hover:bg-gray-800 transition-colors duration-200">
